@@ -9,6 +9,7 @@ from sklearn.metrics import mean_squared_error, r2_score, f1_score, precision_sc
 from xgboost import XGBRegressor
 from skl2onnx.common.data_types import FloatTensorType
 from sklearn.ensemble import IsolationForest
+from pathlib import Path
 
 IMU_MOTION_INPUTS = [
     'linear_acceleration.x', 'linear_acceleration.y', 'linear_acceleration.z',  
@@ -27,7 +28,7 @@ TELEMETRY_COLUMNS = [
     'm1current', 'm2current', 'm3current', 'm4current'
 ]
 
-def run_motor_analysis(df, target_name):
+def run_motor_analysis(df, target_name, output):
     print(f"\nStarting Analysis for: {target_name}")
 
     # data cleaning and type conversion
@@ -47,7 +48,7 @@ def run_motor_analysis(df, target_name):
     print(f"Removed {anomaly_count} anomalies. New dataset size: {clean_count} rows") 
 
     #neat and organized anomalies
-    anomalies_only.to_csv(f"{target_name}_detected_anomalies.csv", index=False)
+    anomalies_only.to_csv(output / f"{target_name}_detected_anomalies.csv", index=False)
 
     display_df = anomalies_only.loc[:,(anomalies_only !=0).any(axis=0)]
 
@@ -94,7 +95,7 @@ def run_motor_analysis(df, target_name):
     print(f"  R-squared: {r2:.4f}")
 
     # convert the tree-based xgboost model into a standardized math graph
-    export_to_onnx(model, target_name, len(IMU_MOTION_INPUTS))
+    export_to_onnx(model, target_name, len(IMU_MOTION_INPUTS), output)
     
     # print the importance of each sensor axis for this specific motor
     importances = pd.Series(model.feature_importances_, index=IMU_MOTION_INPUTS)
@@ -111,7 +112,7 @@ def run_motor_analysis(df, target_name):
     sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
     
     # create the inference session from the saved .onnx file
-    onnx_file = f"{target_name}_model.onnx"
+    onnx_file = (output / f"{target_name}_model.onnx")
     session = ort.InferenceSession(onnx_file, sess_options)
     # identify the input node name for the model
     input_name = session.get_inputs()[0].name
@@ -152,7 +153,7 @@ def run_motor_analysis(df, target_name):
     plt.xlabel("Predicted Current (Amps)")
     plt.ylabel("Residuals (Error in Amps)")
     plt.grid(True, alpha=0.3)
-    plt.savefig(f"{target_name}_residuals.png")
+    plt.savefig(output / f"{target_name}_residuals.png")
     plt.close()
 
     
@@ -172,16 +173,16 @@ def run_motor_analysis(df, target_name):
     print(f"  Avg Accuracy Difference: {avg_diff:.10f} Amps")
     
     # Write to the txt file
-    log_text(target_name, r2, rmse, speedup, over_p, under_p, max_err)
+    log_text(target_name, r2, rmse, speedup, over_p, under_p, max_err, output)
 
-def export_to_onnx(model, target_name, num_features):
+def export_to_onnx(model, target_name, num_features, output):
     # define the input tensor shape (any number of rows, 6 columns)
     initial_type = [('float_input', FloatTensorType([None, num_features]))]
     try:
         # translate the tree logic into the onnx format
         onnx_model = onx.convert_xgboost(model, initial_types=initial_type, target_opset=12)
         # save the binary model file
-        onx.utils.save_model(onnx_model, f"{target_name}_model.onnx")
+        onx.utils.save_model(onnx_model, output / f"{target_name}_model.onnx")
         print(f"Successfully exported {target_name} to {target_name}_model.onnx")
     except Exception as e:
         print(f"Failed export: {e}")
@@ -225,19 +226,21 @@ def benchmark_models(model, session, X_test, input_name):
     # return predictions from the first batch only for accuracy comparison
     return speedup, xgb_res[:len(X_test)], onnx_res[:len(X_test)].flatten()
 
-def log_text(motor, r2, rmse, speedup, over_p, under_p, max_err):
-    with open("tracking_change", "a") as f:
+def log_text(motor, r2, rmse, speedup, over_p, under_p, max_err,output):
+    with open(output / "tracking_change", "a") as f:
         f.write(f"Motor: {motor}, R^2: {r2:.4f}, rmse: {rmse:.4f}, speedup: {speedup}, "
                 f"Over: {over_p:.1%}, Under: {under_p:.1%} , MaxErr: {max_err:.4f}\n")
 
 if __name__ == "__main__":
     try:
         # load the telemetry data
-        data = pd.read_csv("clean_output.csv")
-        # iterate through each motor to train independent digital twins
+        BASE_DIR = Path(__file__).resolve().parent
+        data = BASE_DIR / "clean_output.csv"
+        data = pd.read_csv(data)
+        # iterate through each motor to train model
         for motor in MOTOR_TARGETS:
             if motor in data.columns:
-                run_motor_analysis(data, motor)
+                run_motor_analysis(data, motor, BASE_DIR)
         open("tracking_change", "a").write("\n")
         print("All analyses complete.")
     except FileNotFoundError:

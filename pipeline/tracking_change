@@ -1,0 +1,8 @@
+Motor: m1current, R^2: 0.9807, rmse: 3.9954, speedup: 2.11x, Over: 48.1%, Under: 51.9% , MaxErr: 37.9226
+Motor: m2current, R^2: 0.9926, rmse: 3.7600, speedup: 1.82x, Over: 54.8%, Under: 45.2% , MaxErr: 57.0988
+Motor: m3current, R^2: 0.9892, rmse: 4.6985, speedup: 2.30x, Over: 49.2%, Under: 50.8% , MaxErr: 74.8008
+Motor: m4current, R^2: 0.9941, rmse: 3.0488, speedup: 1.26x, Over: 47.8%, Under: 52.2% , MaxErr: 32.4682
+Motor: m1current, R^2: 0.9807, rmse: 3.9954, speedup: 1.65x, Over: 48.1%, Under: 51.9% , MaxErr: 37.9226
+Motor: m2current, R^2: 0.9926, rmse: 3.7600, speedup: 1.71x, Over: 54.8%, Under: 45.2% , MaxErr: 57.0988
+Motor: m3current, R^2: 0.9892, rmse: 4.6985, speedup: 1.91x, Over: 49.2%, Under: 50.8% , MaxErr: 74.8008
+Motor: m4current, R^2: 0.9941, rmse: 3.0488, speedup: 1.23x, Over: 47.8%, Under: 52.2% , MaxErr: 32.4682
